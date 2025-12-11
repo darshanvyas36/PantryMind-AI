@@ -1,0 +1,29 @@
+# Web Framework
+fastapi
+uvicorn[standard]
+
+# HTTP Client for OpenRouter API
+httpx
+
+# Data Validation and Settings
+pydantic
+pydantic-settings
+
+# Image Processing and OCR
+Pillow
+opencv-python
+pytesseract
+
+# Utilities
+python-multipart
+python-dotenv
+
+# Development and Testing (optional)
+pytest
+pytest-asyncio
+
+google-generativeai
+groq
+
+pandas
+numpy
