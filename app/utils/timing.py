@@ -34,7 +34,7 @@ class PerformanceTimer:
             self.end_step(step_name)
             
     def get_total_time(self) -> float:
-        return (time.time() - self.start_time) * 1000
+        return (time.time() - self.start_time) * 100
         
     def log_summary(self):
         total_time = self.get_total_time()
