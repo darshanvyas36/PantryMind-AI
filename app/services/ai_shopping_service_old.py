@@ -1,8 +1,10 @@
-# app/services/ai_shopping_service_new.py
+import json
 import logging
 import requests
 from typing import List, Dict, Any, Set
-from app.core.ai.pipeline import ai_pipeline
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
 from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -10,8 +12,16 @@ logger = logging.getLogger(__name__)
 class AIShoppingService:
     def __init__(self, backend_url: str = "http://localhost:8080"):
         self.backend_url = backend_url
+        self.llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash-exp",
+            temperature=0.3,
+            google_api_key=settings.gemini_api_key
+        )
+        self.prompt_template = ChatPromptTemplate.from_template(
+            "Analyze inventory data and suggest smart shopping items: {inventory_data}"
+        )
 
-    async def generate_smart_suggestions(self, request) -> Dict[str, Any]:
+    def generate_smart_suggestions(self, request) -> Dict[str, Any]:
         try:
             kitchen_id = request.kitchenId if hasattr(request, 'kitchenId') else request.get('kitchenId')
             list_type = request.listType if hasattr(request, 'listType') else request.get('listType', 'WEEKLY')
@@ -20,33 +30,11 @@ class AIShoppingService:
             all_existing = self._get_all_existing_items(kitchen_id, list_type, existing_items)
             inventory_data = self._get_inventory_data(kitchen_id)
             
-            # Use AI pipeline
-            inventory_text = "\n".join([
-                f"- {item.get('name', 'Unknown')}: {item.get('totalQuantity', 0)} {item.get('unit', {}).get('name', 'units')} (min: {item.get('minStock', 5)})"
-                for item in inventory_data
-            ])
-            
-            ai_data = {
-                "inventory_text": inventory_text,
-                "list_type": list_type,
-                "existing_items": list(all_existing)
-            }
-            
+            # Try LangChain enhancement first, fallback to original logic
             try:
-                schema_result = await ai_pipeline.process_shopping_suggestions(ai_data)
-                suggestions = [
-                    {
-                        "name": item.name,
-                        "quantity": item.quantity,
-                        "unit": item.unit,
-                        "reason": item.reason,
-                        "priority": item.priority,
-                        "confidence": item.confidence
-                    }
-                    for item in schema_result.suggestions
-                ]
+                suggestions = self._generate_ai_enhanced_suggestions(inventory_data, list_type, all_existing)
             except Exception as ai_error:
-                logger.warning(f"AI pipeline failed, using fallback: {ai_error}")
+                logger.warning(f"AI enhancement failed, using original logic: {str(ai_error)}")
                 suggestions = self._generate_unique_suggestions(inventory_data, list_type, all_existing)
             
             return {
@@ -55,7 +43,7 @@ class AIShoppingService:
                 "listType": list_type
             }
         except Exception as e:
-            logger.error(f"Error generating AI suggestions: {e}")
+            logger.error(f"Error generating AI suggestions: {str(e)}")
             return {"suggestions": [], "totalSuggestions": 0, "listType": list_type}
 
     def _get_all_existing_items(self, kitchen_id: int, list_type: str, existing_items: List[str]) -> Set[str]:
@@ -70,7 +58,7 @@ class AIShoppingService:
                 if current_list and 'items' in current_list:
                     all_items.update(item['canonicalName'].lower().strip() for item in current_list['items'])
         except Exception as e:
-            logger.error(f"Error fetching shopping list items: {e}")
+            logger.error(f"Error fetching shopping list items: {str(e)}")
         
         return all_items
 
@@ -135,13 +123,55 @@ class AIShoppingService:
             response = requests.get(f"{self.backend_url}/api/inventory?kitchenId={kitchen_id}")
             return response.json() if response.status_code == 200 else []
         except Exception as e:
-            logger.error(f"Error fetching inventory: {e}")
+            logger.error(f"Error fetching inventory: {str(e)}")
             return []
 
     def _is_low_stock(self, item: Dict) -> bool:
         current_qty = item.get("totalQuantity", 0)
         min_stock = item.get("minStock", 5)
         return current_qty <= min_stock
+
+    def _generate_ai_enhanced_suggestions(self, inventory_data: List[Dict], list_type: str, existing_items: set) -> List[Dict]:
+        """Generate suggestions using LangChain AI enhancement"""
+        # Format inventory for AI analysis
+        inventory_text = "\n".join([
+            f"- {item.get('name', 'Unknown')}: {item.get('totalQuantity', 0)} {item.get('unit', {}).get('name', 'units')} (min: {item.get('minStock', 5)})"
+            for item in inventory_data
+        ])
+        
+        # Use LangChain for intelligent suggestions
+        enhanced_prompt = ChatPromptTemplate.from_template(
+            """Analyze this pantry inventory and suggest {suggestion_count} smart shopping items for {list_type} shopping:
+
+Inventory:
+{inventory_text}
+
+Existing shopping list items: {existing_items}
+
+Provide suggestions as JSON array:
+[{{"name": "item", "quantity": 2.0, "unit": "kg", "reason": "Low stock", "priority": "high"}}]
+
+Focus on:
+1. Items below minimum stock
+2. Complementary items for cooking
+3. Seasonal recommendations
+4. Avoid duplicating existing items"""
+        )
+        
+        chain = enhanced_prompt | self.llm | JsonOutputParser()
+        
+        result = chain.invoke({
+            "suggestion_count": self._get_suggestion_count(list_type),
+            "list_type": list_type,
+            "inventory_text": inventory_text,
+            "existing_items": list(existing_items)
+        })
+        
+        # Enhance with confidence scores
+        for suggestion in result:
+            suggestion["confidence"] = 0.9
+            
+        return result
     
     def analyze_consumption_patterns(self, kitchen_id: int) -> Dict[str, Any]:
         try:
@@ -155,5 +185,5 @@ class AIShoppingService:
                 "recommendations": ["Restock low inventory items"]
             }
         except Exception as e:
-            logger.error(f"Analysis failed: {e}")
+            logger.error(f"Analysis failed: {str(e)}")
             return {"totalItems": 0, "lowStockItems": 0, "consumptionTrends": [], "recommendations": []}

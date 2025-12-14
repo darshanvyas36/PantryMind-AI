@@ -1,0 +1,32 @@
+# Core API
+fastapi
+uvicorn[standard]
+httpx
+
+# Validation
+pydantic>=2
+pydantic-settings
+
+# Utilities
+python-dotenv
+python-multipart
+Pillow
+
+# Data
+numpy
+pandas
+
+# LLMs (NEW STACK ONLY)
+google-genai>=1.55.0
+groq
+
+# LangChain (modern)
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-openai>=0.3.0
+langchain-google-genai>=4.0.0
+langchain-community>=0.3.0
+
+# RAG System
+faiss-cpu
+langchain-text-splitters

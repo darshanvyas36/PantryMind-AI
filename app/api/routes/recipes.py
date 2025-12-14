@@ -22,7 +22,7 @@ async def generate_recipes(request: RecipeRequest, category: str = None):
         print(f"📦 [PYTHON] Available items: {[item.name for item in request.items]}")
         print(f"🏷️ [PYTHON] Category: {category if category else 'General'}")
         
-        result = recipe_service.generate_recipes(request, category)
+        result = await recipe_service.generate_recipes(request, category)
         
         print(f"✅ [PYTHON] Generated {len(result.recipes)} recipes successfully")
         return result
@@ -38,7 +38,7 @@ async def generate_recipe_by_name(request: RecipeByNameRequest):
     print(f"📦 [PYTHON] Available items: {len(request.availableItems)}")
     
     try:
-        result = recipe_service.generate_recipe_by_name(request)
+        result = await recipe_service.generate_recipe_by_name(request)
         print(f"✅ [PYTHON] Generated recipe for: {request.recipeName}")
         return result
     except Exception as e:

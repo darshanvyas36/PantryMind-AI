@@ -4,9 +4,6 @@ import base64
 import asyncio
 from typing import List, Tuple
 from app.core.vision.preprocessor import minimal_vision_preprocessing
-from app.core.llm.client import llm_client
-from app.core.llm.prompts import BillPrompts
-from app.core.llm.parser import llm_parser
 from app.services.enrichment_service import enrichment_service
 from app.models.common import ExtractedItem, DocumentType
 from app.models.response import OCRResponse
@@ -73,13 +70,21 @@ class BillService:
                 (categories, units, locations), processed_image = await asyncio.gather(metadata_task, image_task)
             
             # Vision processing
-            with timer.time_step("vision_processing"):
+            with timer.time_step("ai_processing"):
                 image_base64 = base64.b64encode(processed_image).decode('utf-8')
-                prompt = BillPrompts.vision_extraction(locale, categories, units, locations)
-                llm_response = await llm_client.vision_completion(prompt, image_base64)
                 
-            with timer.time_step("response_parsing"):
-                items = llm_parser.parse_bill_response(llm_response)
+                from app.core.ai.pipeline import ai_pipeline
+                from app.core.ai.converter import schema_converter
+                
+                context_data = {
+                    "categories": categories,
+                    "units": units,
+                    "locations": locations,
+                    "locale": locale
+                }
+                
+                schema_result = await ai_pipeline.process_bill(image_base64, context_data)
+                items = schema_converter.bill_schema_to_items(schema_result)
                 
             confidence_summary = self._calculate_confidence_summary(items)
             processing_time = int(timer.get_total_time())

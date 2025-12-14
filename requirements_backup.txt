@@ -21,3 +21,10 @@ groq
 
 pandas
 numpy
+
+langchain
+
+langchain-google-genai
+
+# pip install pip-tools
+# pip-compile --generate-hashes requirements_backup.txt

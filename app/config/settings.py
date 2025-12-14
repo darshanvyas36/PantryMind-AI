@@ -23,9 +23,25 @@ class Settings(BaseSettings):
     ocr_timeout_seconds: int = 15
     
     # Java Backend Integration
-    java_backend_url: Optional[str] = None
+    java_backend_url: str = "http://localhost:8080"
     api_key_header: str = "X-API-Key"
     internal_api_key: Optional[str] = None
+    
+    # OpenRouter Configuration
+    openrouter_api_key: Optional[str] = None
+    openrouter_model: str = "qwen/qwen3-coder:free"
+    
+    # Embedding Configuration
+    embedding_model: str = "text-embedding-004"  # Gemini embedding model
+    embedding_provider: str = "gemini"  # Use Gemini for embeddings
+    
+    # Governed Agent System Models
+    governor_model: str = "amazon/nova-2-lite-v1:free"  # Small, deterministic
+    intent_model: str = "amazon/nova-2-lite-v1:free"    # Fast, cheap
+    planner_model: str = "allenai/olmo-3-32b-think:free"  # Reasoning-heavy
+    tool_model: str = "tngtech/deepseek-r1t-chimera:free"      # Medium capability
+    validator_model: str = "amazon/nova-2-lite-v1:free" # Deterministic
+    response_model: str = "tngtech/deepseek-r1t2-chimera:free" # Fluent
     
     class Config:
         env_file = ".env"

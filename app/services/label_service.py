@@ -2,9 +2,6 @@
 import uuid
 import base64
 from app.core.vision.preprocessor import minimal_vision_preprocessing
-from app.core.llm.client import llm_client
-from app.core.llm.prompts import LabelPrompts
-from app.core.llm.parser import llm_parser
 from app.models.common import DocumentType
 from app.models.response import OCRResponse
 from app.utils.exceptions import OCRServiceError
@@ -31,13 +28,14 @@ class LabelService:
             with timer.time_step("image_preprocessing"):
                 processed_image = await minimal_vision_preprocessing(image_data, filename)
             
-            with timer.time_step("vision_processing"):
+            with timer.time_step("ai_processing"):
                 image_base64 = base64.b64encode(processed_image).decode('utf-8')
-                prompt = LabelPrompts.vision_extraction()
-                llm_response = await llm_client.vision_completion(prompt, image_base64)
-            
-            with timer.time_step("response_parsing"):
-                item = llm_parser.parse_label_response(llm_response)
+                
+                from app.core.ai.pipeline import ai_pipeline
+                from app.core.ai.converter import schema_converter
+                
+                schema_result = await ai_pipeline.process_label(image_base64)
+                item = schema_converter.label_schema_to_item(schema_result)
             
             processing_time = int(timer.get_total_time())
             timer.log_summary()

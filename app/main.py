@@ -2,15 +2,12 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.api.routes import ocr, health, ai_shopping, recipes
+from app.api.routes import ocr, health, ai_shopping, recipes, chat, advanced_recipes, complete_chat
+from app.api import governed_chat
 from app.config.settings import settings
 from app.utils.exceptions import OCRServiceError
 from app.utils.logger import setup_logging
 import logging
-
-
-# for recipes  ----
-from app.api.routes import recipes, advanced_recipes
 
 # Setup logging
 setup_logging()
@@ -34,15 +31,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers# Include routers
+# Include routers
 app.include_router(health.router, tags=["Health"])
 app.include_router(ocr.router)
 app.include_router(recipes.router)
-app.include_router(ai_shopping.router, prefix="/api/ai-shopping", tags=["AI Shopping"])
-
-# for recipes 
-app.include_router(recipes.router)
 app.include_router(advanced_recipes.router)
+app.include_router(ai_shopping.router, prefix="/api/ai-shopping", tags=["AI Shopping"])
+app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
+app.include_router(complete_chat.router, prefix="/api", tags=["Complete Chat"])
+app.include_router(governed_chat.router, prefix="/api", tags=["Governed Chat"])
 
 # Global exception handler
 @app.exception_handler(OCRServiceError)
